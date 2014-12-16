@@ -30,11 +30,13 @@ class Pim:
         self.cur_hide_delay = 2
         self.fullscreen = False
         self.geometry = "800x600"
-        self.marked = []
         self.slideshow = False
         self.slideshow_delay = 5
         self.shuffle = False
         self.zoom_lock = False
+
+        self.paths = []
+        self.marked = []
 
         self.binds = (
             #(modifer, key, function, args)
@@ -69,7 +71,7 @@ class Pim:
             (Gdk.ModifierType.SHIFT_MASK, Gdk.KEY_X,     self.delete, -1),
             (0,              Gdk.KEY_x,     self.delete, 0),
             (0,              Gdk.KEY_z,     self.toggle_zoom_lock),
-            (0,              Gdk.KEY_m,     self.mark),
+            (0,              Gdk.KEY_m,     self.toggle_marking),
 
             (0,              Gdk.KEY_1,    self.zoom_to, 1),
             (0,              Gdk.KEY_2,    self.zoom_to, 2),
@@ -94,6 +96,7 @@ class Pim:
     def delete(self, delta = 0):
         current = self.paths[self.index]
         self.paths.remove(current)
+        del self.marked[self.index]
         if os.path.exists(current):
             if not os.path.isdir('/tmp/pim-trash'):
                 os.mkdir('/tmp/pim-trash')
@@ -121,8 +124,9 @@ class Pim:
                 f.close()
             except IOError as e:
                 print(e)
-        for pos in self.marked:
-            print(pos)
+        for i in range(len(self.marked)):
+            if self.marked[i]:
+                print(self.paths[i])
 
         Gtk.main_quit()
 
@@ -239,8 +243,9 @@ class Pim:
 
 
     def update_title(self):
-        self.win.set_title("pim %d/%d %d%% %s%s" % (self.index+1, len(self.paths),
-            self.zoom_percent * 100, self.paths[self.index], ' [slideshow]' if self.slideshow else ''))
+        self.win.set_title("pim %d/%d %d%% %s%s %s" % (self.index+1,
+            len(self.paths), self.zoom_percent * 100, self.paths[self.index],
+            ' [slideshow]' if self.slideshow else '', '*' if self.marked[self.index] else ''))
 
 
     def zoom_delta(self, delta):
@@ -341,7 +346,6 @@ class Pim:
                     print(e)
 
         #add everything
-        self.paths = []
         for arg in args:
             path = os.path.abspath(arg)
             if os.path.isfile(path):
@@ -356,6 +360,9 @@ class Pim:
         #remove unsupported files
         self.paths = [path for path in self.paths if mimetypes.guess_type(path)[0] in types]
 
+        # Create list for keeping the marked status
+        self.marked = [False for i in range(len(self.paths))]
+
         #shuffle
         if self.shuffle:
             shuffle(self.paths)
@@ -369,8 +376,9 @@ class Pim:
         return len(self.paths)
 
 
-    def mark(self):
-        self.marked.append(self.paths[self.index])
+    def toggle_marking(self):
+        self.marked[self.index] = not self.marked[self.index]
+        self.update_title()
 
 
     def cursor_hide(self):
